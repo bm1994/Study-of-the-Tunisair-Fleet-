@@ -1,0 +1,958 @@
+---
+title: "Lab 1"
+author: "Groupe 4"
+date: "13 octobre 2018"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Méthodologie utilisé 
+
+lors de ce projet nous aurons recours à la méthode CRISP "Cross-Industry Standard Process for Data Mining" vu que c'est la methode la plus utilisée pour orienter nos travaux d'éxploration de données .
+
+## Metier
+
+Le tourisme tunisien a du mal à se relever de la révolution et de ses suites. Les chiffres 2013 le montrent: le nombre de nuitées touristiques a baissé entre 2010 et 2013 de plus de 15% (de 35,5 millions de nuitées à 30 millions) . en 2015 la Tunisie est devenue une <strong>no-go-zone</strong> pour les touristes étrangers suite aux attentats mais Les revenues du tourisme tunisien ont connu une amélioration de 42% estimées à 554 Millions de dollars dans les sept premiers mois de l'année 2018 le secteur est alors en train de guérir . 
+
+Cependant la compagnie tunisienne vise à modériniser sa flotte afin d'assurer les conditions les plus favorables aux visiteurs de notre pays .
+
+Notre objectif metier consiste donc à :
+<ul>
+<li>Determiner si les flottes tunisiennes répondent aux éxigences nécéssaires.</li>
+<li>Est-ce que la flotte actuelle de Tunisair répond aux exigences internationales ?</li>
+<li>Peut-on affirmer que les modéles disponibles dans la compagnie tunisienne joignent les normes standards favorisant la concurrence sur l'échelle régionale et/ou internationale ?</li>
+<li>Comment peut-on catégoriser une telle panoplie de modéles d'avions ?</li>
+<li>Quel est le profil typique des avions dans le monde ?</li>
+</ul>
+Notre data science goal consiste à :
+<ul> 
+<li>La Segmentation des avions de tunisair par rapport à leurs caractéristiques.</li>
+<li>Analyser les flottes d'un concurrent voisin : Royal Maroc Air .</li>
+<li> La Detérmination des prochaines améliorations nécessaires afin d'attirer plus de visiteurs </li>
+</ul>
+
+Dans le but de pouvoir atteindre nos objéctifs nous aurons recours aux ressources contenant les données et les informations nécessaires  liées aux avions du monde , Royal Maroc Air et Tunisair
+
+##Dataset
+
+moyennant 5 fichiers : 
+<ul>
+<li><strong>delta.csv</strong>: Nous aurons recours à ce fichier afin de pouvoir dégager l'avion le plus typique et le comparer avec la flotte tunisienne afin de parvenir à savoir si cette dernière répond aux éxigences </li>
+<li><strong>Tunisair.csv</strong>: Ce fichier contient le dataset des avions de la compagnie tunisienne </li>
+<li><strong>Long_haul Class.csv</strong>:ce fichier contient les données des flottes caractérisées par les longues distances ! </li>
+<li><strong>Short_haul class.csv</strong>:Ce fichier contient les données des flottes caractérisées par les courtes distances !</li>
+<li><strong>review.csv</strong>:Ce fichier contient les reviews des compagnies mondiales faites par les utilisateurs du site : www.skytrax.com </li>
+</ul>
+
+
+##Exploration du fichier review
+
+
+#####Chargement des library
+
+```{r,warning=FALSE,message=FALSE}
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+library(grid)
+library(lattice)
+library(ggpubr)
+library(DataExplorer)
+library(cluster)
+library(factoextra)
+library(tidyr)
+library(FactoMineR)
+library(tidyverse)
+library(corrplot)
+library(gridExtra)
+library(GGally)
+library(factoextra)
+```
+
+
+
+### Importation des données 
+
+```{r}
+
+airline <- read.csv("airline.csv")
+
+
+```
+
+### Préparation des données
+
+nous avons besoin des noms des compagnies seulement,cabin flown seat comfort rating entretanment value money staff rating 
+ground service rating  recommended overall_rating wifi rating . 
+
+```{r}
+quanti<-airline[,c(1,10,12,13,14,15,16,17,18,19,20)]
+```
+
+
+Voir s'il y a des données manquantes.
+
+```{r}
+plot_missing(quanti)
+```
+
+
+
+
+##### On remarque qu'il y a des données manquantes dans les colonnes ground service and wifi connectivte alors on va les enlever .
+ 
+
+
+```{r}
+quanti<-airline[,c(1,10,12,13,14,15,16,19,20)]
+```
+
+
+
+```{r}
+summary(quanti)
+names(airline)
+```
+
+**Dans ce fichier on a utilisé les notes (reviews) de chaque service (food, staff, seat review, wifi....) dans toutes les compagnies aériennes**
+
+
+```{r,warning=FALSE,message=FALSE}
+ airline_sample <- na.omit(quanti)
+```
+
+
+```{r}
+airline_without_text<-airline_sample[,c(3,4,5,6,7,8)]
+```
+
+
+
+```{r}
+airline_sample<-airline_sample[,c(1,2,3,4,5,6,7,8)]
+```
+
+<font color="red">Aprés la préparation des données on passe à la classification des services offerts par Tunisair par rapport aux autres compagnies.</font>
+
+
+###Combien de clusters?
+
+Pour étudier graphiquement quelle valeur de k nous donne la meilleure partition, nous pouvons tracer entre banseens et tot.withinss vs choix de k.
+
+
+
+```{r,echo= FALSE}
+bss <- numeric()
+wss <- numeric()
+
+
+```
+```{r}
+for(i in 1:10){
+  
+  # Pour chaque k, calcule entre etbetweenss et tot.withinss
+  bss[i] <- kmeans(airline_without_text, centers=i)$betweenss
+  wss[i] <- kmeans(airline_without_text, centers=i)$tot.withinss
+}
+```
+```{r , echo= FALSE,fig.align='center'}
+# Between-cluster sum of squares vs Choice of k
+p3 <- qplot(1:10, bss, geom=c("point", "line"), 
+            xlab="Number of clusters", ylab="Between-cluster sum of squares") +
+  scale_x_continuous(breaks=seq(0, 10, 1))
+#scale_x_continuous(breaks=seq(0, 10, 1)) draw squares to 
+#devide our graph starting from 0 to 10 by step of 1
+
+# Total within-cluster sum of squares vs Choice of k
+p4 <- qplot(1:10, wss, geom=c("point", "line"),
+            xlab="Number of clusters", ylab="Total within-cluster sum of squares") +
+  scale_x_continuous(breaks=seq(0, 10, 1))
+
+```
+```{r , fig.align='center'}
+grid.arrange(p3, p4, ncol=2)
+```
+
+```{r}
+k <-list()
+for(i in 1:10){
+  k[[i]] <- kmeans(airline_without_text,i)
+}
+
+
+betweennss_totss <- list()
+for(i in 1:10){
+  betweennss_totss[[i]] <- k[[i]]$betweenss/k[[i]]$totss
+}
+
+#type = b to say that we want it to
+#be both dots and lines
+plot(1:10,betweennss_totss,type="b",
+     ylab="Between SS / Total SS",
+     xlab = "Cluster(k)")
+```
+
+On remarque que la meilleure ségmentation est avec 3 clusters :
+
+
+```{r}
+set.seed(0)
+air_k2 <- kmeans(airline_without_text, centers=3)
+```
+
+```{r}
+plot(airline_sample,col = air_k2$cluster)
+
+```
+
+
+```{r}
+air_k2$centers
+```
+
+<font color="red">
+Apres le clustering on a obtenu 3 groupes (bon , moyen, mauvais).
+Selectionnons les (notes) reviews de tunisair pour trouver son emplacement par rapport aux autres compagnies.
+</font>
+
+```{r}
+tunisair_riview = airline[which(airline$airline_name=="tunisair"),]
+```
+
+```{r}
+summary(tunisair_riview[,c(12,13,14,15,16,19,20)])
+```
+
+
+- On remarque que plus de 34% des passagers recommandent Tunisair. 
+- Le food ,staff rating and seat rating sont trés faibles , c'est pour cela qu'on trouve Tunisair dans le 3 éme cluster. 
+
+#### nous trouvons que Tunisair ne posséde aucun problème au niveau du staff qui a une note trés proche du premier cluster
+
+#### Puisque notre projet consite à améliorer la flotte de Tunisair nous avons choisi de la comparer avec une compagnie du premier cluster afin de trouver ce qui manque Tunisair d'être dans le premier cluster. 
+
+<h6>Tirer le profil typique à travers le fichier delta.csv pour savoir si Tunisair repond aux exigences d'une flotte typique. </h6>
+
+###Exploration du fichier delta
+
+Commençons par l'importation du fichier <strong> delta.csv </strong>
+
+```{r pressure, echo=FALSE}
+deltaFlotte<-read.csv('C:/Users/pc/Desktop/delta.csv',header=T,row.names = 1,sep = ",")
+any(is.na(deltaFlotte)==1)
+delta<-read.csv('C:/Users/pc/Desktop/delta.csv',header=T,row.names = 1,sep = ",")
+delta_scaled<-scale(delta)
+```
+Visiblement notre fichier delta.csv ne contient aucune valeur manquantes passant ensuite a l'analyse de notre
+fichier :
+commencant par la boxplot :
+```{r}
+boxplot(deltaFlotte)
+```
+nous remarquons que les valeurs n'ont pas la même unité alors nous allons passer au scaling :
+```{r}
+deltaFlotteScale<-scale(deltaFlotte,scale = T,center = T)
+boxplot(deltaFlotteScale)
+```
+
+Maintenant les données sont centrées ! passons ensuite à l'étape suivante qui consiste à déterminer le nombre de cluster que nous pouvons avoir
+
+```{r}
+wss <- (nrow(deltaFlotteScale)-1)*sum(apply(deltaFlotteScale,2,var))
+for (i in 2:15) wss[i] <- sum(kmeans(deltaFlotteScale,
+centers=i)$withinss)
+plot(1:15, wss, type="b", xlab="Number of Clusters",
+ylab="Within groups sum of squares")
+```
+
+d'aprés le schéma nous pourrons diviser notre base sur 4 groupes, appliquons le kmeans : 
+
+```{r}
+set.seed(125)
+km = kmeans(deltaFlotteScale,4)
+gpe.kmeans = km$cluster
+gpe.kmeans
+```
+
+Ici nous remarquons qu'il existe un cluster contenant un seul avion VIP de la classe club <strong>  Airbus A319 VIP</strong> 
+nous allons maintenant ajouter les clusters afin de pouvoir visualiser la répartition des avions : 
+
+```{r}
+library(FactoMineR)
+#ajouter la colonne contenant le numero ducluster.
+delta_withcluster=cbind(deltaFlotteScale,gpe.kmeans)
+PCA_delta=PCA(delta_withcluster,quali.sup=34,quanti.sup = c(1,2,4,5,7,8,10,11,13,14,29,30,31,23,33))
+```
+
+Nous visualisons la répartition des avions entre les clusters
+
+```{r}
+
+PCA_delta=PCA(delta_withcluster,quali.sup=34,quanti.sup = c(1,2,4,5,7,8,10,11,13,14,29,30,31,23,33))
+
+res.pca <- PCA(delta_withcluster, graph = FALSE)
+```
+
+
+```{r}
+fviz_pca_var(res.pca, col.var = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE 
+             )
+```
+
+<img src="1.png"></img>
+
+```{r message=FALSE, r,warning=FALSE}
+#11
+#plot(PCA_delta,habillage=34,col.hab=c("black","green","red","orange"))
+
+```
+
+- Nous trouvons quelques avions qui sont trés différents des autres comme Airbus A319 et E120. 
+
+###Analyse de chaque cluster
+
+```{r}
+datacluster=as.data.frame(delta_withcluster)
+cluster1= datacluster[which(datacluster$gpe.kmeans==1),]
+cluster2= datacluster[which(datacluster$gpe.kmeans==2),]
+cluster3= datacluster[which(datacluster$gpe.kmeans==3),]
+cluster4= datacluster[which(datacluster$gpe.kmeans==4),]
+
+fusion<-as.data.frame(cbind(delta,groupe=datacluster$gpe.kmeans))
+aff<-as.data.frame(fusion)
+aggregate(aff,by=list(aff$groupe),FUN=mean)
+```
+
+##### Cluster 1
+
+```{r,message=FALSE,warning=FALSE}
+h<-cluster1[,c(1,10,12,13,14,15,16,17,18,19,20)]
+corrplot(cor(h), type="upper", method="ellipse", tl.cex=0.9)
+PcaCl1=PCA(cluster1,quali.sup=29,quanti.sup = c(1,2,4,5,7,8,10,11,26,27,20))
+
+
+res.pca <- PCA(h, graph = FALSE)
+
+fviz_pca_var(res.pca, col.var = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE 
+             )
+
+
+cluster1_sof <- fusion[which(fusion$groupe==1),]
+aggregate(cluster1_sof,by=list(cluster1_sof$groupe),FUN=mean)
+
+```
+
+-  Faible cluster en Economy Class, Accomodation,CruisingSpeed, Range, Wingspan, Tail Height et Length - Absence de Business Class, First Class, EcoComfortClass,Wifi, Vidéo, Power, Satellite, Flat-bed et Sleeper dans ce cluster
+- Tunisair doit éviter les avions de ce groupe.
+
+
+##Cluster 2:
+
+
+```{r,message=FALSE,warning=FALSE}
+h<-cluster2[,c(1,10,12,13,14,15,16,17,18,19,20)]
+corrplot(cor(h), type="upper", method="ellipse", tl.cex=0.9)
+PcaCl2=PCA(cluster2,quali.sup=29,quanti.sup = c(1,2,4,5,7,8,10,11,26,27,20))
+
+res.pca <- PCA(h, graph = FALSE)
+
+fviz_pca_var(res.pca, col.var = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE 
+             )
+cluster2_sof <- fusion[which(fusion$groupe==2),]
+aggregate(cluster2_sof,by=list(cluster2_sof$groupe),FUN=mean)
+
+
+```
+
+CLUSTER 2 - un bon cluster en Sleeper ,Satellite , Power , Video ,Length..ft , tail.Height wingspan, nombre de moteur varie entre 2 et 3 ,range, Cruising speed, accomodation , seats Economy , Eco comfort , seat business ,seat pitch business, - Moyenne en Wifi - absence de first class. 
+
+
+##Cluster 3:
+
+```{r,message=FALSE,warning=FALSE}
+h<-cluster3[,c(1,10,12,13,14,15,16,17,18,19,20)]
+corrplot(cor(h), type="upper", method="ellipse", tl.cex=0.9)
+PcaCl3=PCA(cluster3,quali.sup=29,quanti.sup = c(1,2,4,5,7,8,10,11,26,27,20))
+
+
+res.pca <- PCA(h, graph = FALSE)
+
+fviz_pca_var(res.pca, col.var = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE 
+             )
+
+cluster3_sof <- fusion[which(fusion$groupe==3),]
+aggregate(cluster3_sof,by=list(cluster3_sof$groupe),FUN=mean)
+
+```
+
+axe 1 : seatpitch econmy , range miles ,seat first class
+and length ont une forte corrélation sur  axe 1
+axe2: firstclass,seatwidth and satelite on une forte corrélation avec l'axe 2 
+
+Le cluster 3 - la majorité des avions de ce cluster posséde first class et est faible en business class et en range.miles bon en sleeper - moyen en accomodation  .
+
+
+##Cluster 4:
+
+
+Le cluster 4 contient un seul avion, Vu qu'il contient la classe club .
+
+
+```{r}
+table(km$cluster)
+```
+
+Possédant le plus de nombre d'observation et plutôt bon de point de vue qualité mais faible en range.miles on ne peut pas considérer le 3eme cluster comme le cluster le plus typique car ces avions ne sont pas conçus pour les longues distances  .
+
+nous pouvons considérer le cluster 2 comme le profile typique car il est plutôt bon de point de vue qualité et c'est le deuxieme cluster possédant le nombre d'observation apres le cluster 3 .
+```{r}
+head(sort(cluster2$Range..miles.,decreasing = T))
+```
+
+## CARACTERISATION DES CLUSTERS
+
+Cluster 1 : Ce cluster posséde le nombre d'avions le plus petit avec une qualité médiocre comme E120 et ERJ-145 Tunisair doit eviter ce cluster 
+
+Cluster 2: Ce cluster posséde des avions de bonnes qualité , ne possede pas de first class mais la classe economique et la classe buissness sont excellentes. 
+
+cluster 3 : ce cluster posséde 3 classes (first class, economy, business), et posséde le plus grand nombre d'avions.
+
+cluster4 : Ce cluster contient un seul avion (A319 VIP).
+
+**profil typique**
+
+CLUSTER2 représente alors le profil typique des avions dans le monde car d'une part il est le meilleur de point de vue qualité ainsi qu'il contient le plus grand nombre d'individus (modèles d'avion).
+
+##Nous passons a l'analyse du fichier tunisair.csv pour savoir si Tunisair repond aux exigences. 
+
+**Chargement du jeu des données de Tunisair**
+```{r}
+dataTunisair = read.table('tunisair.csv',sep=";",dec=",",header=T, row.names = 1)
+head(dataTunisair)
+
+```
+
+
+```{r}
+dim(dataTunisair)
+```
+
+Nous remarquons que la Tunisair dispose de 28 avions.
+Nous disposons de 28 entrées et 34 variables qui décrivent la dataset.
+
+```{r}
+colnames(dataTunisair)
+```
+
+Ce dataset nous permet d'etudier "Aircraft" en se basant sur ces critéres ci dessus
+
+
+```{r}
+any(is.na(dataTunisair)==1)
+```
+
+Nous n'avons aucune valeur manquante
+
+
+```{r}
+club=dataTunisair[which(dataTunisair$Club.>0),]
+nrow(club)
+
+firstClasse=dataTunisair[which(dataTunisair$First.Class.>0),]
+nrow(firstClasse)
+
+sleeper=dataTunisair[which(dataTunisair$Sleeper>0),]
+nrow(sleeper)
+flatbed=dataTunisair[which(dataTunisair$Flat.bed>0),]
+nrow(flatbed)
+nrow(flatbed)/length(dataTunisair)*100
+```
+
+Nous remarquons d'aprés la dataset que Tunisair n'a aucun avion qui comporte la classe club ni la classe premium qui sont les classes les plus modérnes et les meilleures au niveau confort. 
+
+Nous remarquons aussi qui'il n ya aucun avion avec la classe sleeper et seulement 2/28 (qui représentent seulenemnt 6%) avions disposant du flatBed(lit plat) et ce n'est pas trés important puisque Tunisair ne propose pas assez de vols à long-courriers.
+
+```{r}
+#nombre d'avion qui comporte la classe economique
+eco=dataTunisair[which(dataTunisair$Economy>0),]
+nrow(eco)
+
+#nombre d'avion qui possede la classe bunisness
+business=dataTunisair[which(dataTunisair$Business>0),]
+nrow(business)
+nrow(business)/length(dataTunisair)*100
+```
+
+Nous remarquons que tout les avions de tunisair comportent la classe economique 28/28, et nous trouvons que 19/28 (57.57%) avions comportant la classe business qui s'adresse aux personnes effectuant des voyages professionnels ce qui est trés normal pour une compagnie qui posséde 28 avions. Ces 2 classes sont les classes les plus reservées par les voyageurs.
+
+```{r}
+#moyenne des sieges de la classe economique
+mean(dataTunisair$Seats..Economy.)
+
+#moyenne des sieges de la classe business
+mean(dataTunisair$Seats..Business.)
+View(dataTunisair)
+
+```
+
+La moyenne du nombre de siéges des avions de classe économique est 138 supérieure à celle de la classe business qui est 12 ce qui est normal puisque la classe economique est la plus prisée des voyageurs, car elle constitue l'offre la moins chère. 
+
+
+```{r}
+eco[which.max(eco$Seats..Economy.),]
+business[which.max(business$Seats..Business.),]
+```
+
+Nous remarquons que l'avion Airbus A330-243 posséde le plus grand nombre de siéges dans la classe économique et la classe business nous pouvons dire que c'est le plus grand avion que Tunisair posséde.
+
+```{r}
+mean(dataTunisair$Seat.Width..Business.)
+mean(dataTunisair$Seat.Pitch..Business.)
+```
+dans la classe business :
+la moyenne de la largeur des sièges est de 14.17.
+la moyenne de l'espace entre les sièges est de 25.07. 
+
+la moyenne de la largeur des sièges de la flotte typique est de 20.73333 
+la moyenne de l'espace entre les sièges est de 71.01667
+
+
+```{r}
+mean(dataTunisair$Seat.Width..Economy.)
+mean(dataTunisair$Seat.Pitch..Economy.)
+```
+dans la classe economique :
+la moyenne de la largeur des sièges est de 17.53.
+la moyenne de l'espace entre les sièges est de 29.96
+
+-la moyenne de la largeur des sièges d'une flotte typique 17.86667
+-la moyenne de l'espace entre les sièges d'une flotte typique est de 31.1	
+
+
+
+```{r}
+wifi=dataTunisair[which(dataTunisair$wifi>0),]
+nrow(wifi)
+
+dataTunisair[which(dataTunisair$Video>0 & dataTunisair$Satellite>0 ),]
+
+```
+Nous remarquons que tous les avions de Tunisair ne possédent ni wifi ni video.
+
+Nous remarquons également que l'avion Airbus A330-243 est le seul qui posséde des videos et des satellites. 
+
+-la flotte typique montre la présence de wifi de video et de satéllite 
+
+```{r}
+mean(dataTunisair$Range..miles)
+```
+
+La moyenne de la distance que les avions de tunisair peut parcourir est de 6240 .
+
+La moyenne de la distance qu'un avion typique peut parcourir est de 6449.533 .
+
+```{r}
+range=dataTunisair[which.max(dataTunisair$Range..miles.),]
+range
+```
+Le même avion Airbus A330-243 peut parcourir 7767 miles.
+
+<strong>Pour conclure Tunisair répond aux éxigences d'une flotte typique cependant elle doit améliorer quelques points  comme le confort (distance entre les sièges) et des services (wifi , video ) </strong>
+```{r}
+nrow(dataTunisair[which(dataTunisair$Engines == 2),])
+```
+Tous les avions de tunisair sont formés de 2 moteurs.
+
+-la flotte typique posséde 2 moteurs .
+
+**Relation entre les variables**
+
+```{r}
+library("corrplot")
+Tuni<-scale(dataTunisair,scale=T,center=T)
+corrplot(Tuni, is.corr=FALSE)
+```
+
+
+Utilisation de l'ACP pour réduire l'information dans un nombre minimal de dimension.
+
+```{r warning=FALSE}
+library("FactoMineR")
+t=PCA(dataTunisair,quanti.sup=c(18,19,21,22,23,31,33))
+```
+
+
+D'aprés ce graphique de corrélation des variables, nous pouvons voir clairement, que l'avion Airbus A330-243 v1 Airbus A330-243 v2 sont les meilleurs avions que posséde la compagnie Tunisair.
+
+```{r}
+
+library("FactoMineR")
+library("factoextra")
+res.pca <- PCA(dataTunisair, graph = FALSE)
+
+fviz_pca_var(res.pca, col.var = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE 
+             )
+```
+
+Nous pouvons donc conclure que "Airbus A330-243" est caracterisé par la meilleure range miles ,tail height et economy class et le seul avion qui posséde la video et satellite.
+
+Une bonne representation "Cruising.Speed..mph." qui caractérise le plus les avions Boeing.
+Seulement les avions "Airbus" ont la classe Business.
+
+```{r}
+Tuni<-scale(dataTunisair,scale=T,center=T)
+Tuni[is.nan(Tuni)] <- 0
+t<-Tuni[, colSums(Tuni != 0) > 0] #pour elimner les 0 de toute les colonnes
+m <- cor(t)
+corrplot(m, method = "number") #voir la correlation entres les variables
+dataTunisair$Cruising.Speed..mph.
+```
+
+D'aprés la fonction corrplot nous pouvons détérminer la correlation entre les différents variables telque seats with business et seat pitch business et seats business avec la variable business ce qui est trés logique.
+
+
+**Preparation des données**
+```{r}
+boxplot(dataTunisair)
+```
+Nous remarquons qu'il est difficile de comparer nos variables car elles n'ont pas la même unité, donc nous devons passer par le centrage et réduction
+
+```{r}
+Tuni<-scale(dataTunisair,scale=T,center=T)
+Tuni[is.nan(Tuni)] <- 0
+boxplot(Tuni)
+```
+Nous remarquons que la qualité du bocplot s'est ameliorée et les données sont plus lisibles et les variables sont devenues comparables.
+
+**Modelisation**
+
+```{r}
+
+head(na.omit(Tuni)) #pour voir s'il y a des données manquantes
+
+wssplot <- function(data, nc=15, seed=1234){
+  wss <- (nrow(data)-1)*sum(apply(data,2,var))
+  for (i in 2:nc){
+    set.seed(seed)
+    wss[i] <- sum(kmeans(data, centers=i)$withinss)}
+  plot(1:nc, wss, type="b", xlab="Number of Clusters",
+       ylab="Within groups sum of squares")}
+
+wssplot (Tuni, nc=10, seed=1234)
+```
+
+D'aprés cette fonction ,le nombre optimal de cluster est 3 ou bien 4.
+
+
+```{r warning=FALSE}
+library(FactoMineR)
+for (k in 3:4)
+{
+  km = kmeans(Tuni,k)
+  gpe.kmeans = km$cluster
+  
+  datatunisaire=cbind(Tuni,gpe.kmeans)
+
+  dataTunClus=PCA(datatunisaire, quali.sup=34,quanti.sup=c(18,19,21,22,23,31,33))
+}
+
+```
+
+Nous remarquons que dans le cas où k=3 nous avons une meilleure ségmentation puisque les groupes sont plus separés. 
+
+```{r warning=FALSE}
+#choisissons le k=3
+set.seed(12)
+km = kmeans(Tuni,3)
+gpe.kmeans = km$cluster
+datatunisaire=cbind(Tuni,gpe.kmeans)
+dataTunClus=PCA(datatunisaire, quali.sup=34,quanti.sup=c(18,19,21,22,23,31,33))
+
+```
+
+```{r}
+library(FactoMineR)
+which(colnames(dataTunClus$call$X)=="gpe.kmeans")
+```
+
+
+<img src="2.png"></img>
+
+```{r eval=FALSE, include=FALSE}
+#2
+#plot(dataTunClus,habillage=34,col.hab=c("green","blue","red"))
+```
+
+```{r}
+table(km$cluster)
+```
+Nous avons obtenu une classe contenant 9 entrées,une 2éme avec 17 entrées et l'autre 2 entrées.
+
+```{r}
+gpe.kmeans
+```
+
+
+**Determination des caractéristiques et analyse de chaque cluster**
+```{r}
+data_kmean <- cbind(dataTunisair, groupe2mean=km$cluster)
+data2mean <- as.data.frame(data_kmean)
+aggregate(data2mean,by=list(data2mean$groupe2mean),FUN=mean)
+```
+
+Nous remarquons que le cluster 3 est le meilleur, il est caracterisé par les meilleurs Seat.Pitch..Economy , Seats..Economy,cruising.speed, range.miles , le seul cluster qui comporte video, power, satellite, flat bed, accommodation et le meilleur dans la classe bunisness et economy, donc le cluster 3 represente le meilleur profil d'avion chez Tunisair de point de vue qualité.
+
+Alors que le 1ér cluster est un cluster qui ne contient pas la classe business et le plus faible au niveau de range.miles.
+
+le cluster 2 est le cluster caracterisé par Seat.Width..Economy et Engines Wingspan..ft, le plus faible cluster au niveau de Cruising.Speed..mph.
+
+
+
+##Nous passons a la comparaison de tunisair avec l'un de ses concurrents direct qui est le Royal Air Maroc##
+
+
+**Chargement du jeu de données**
+```{r}
+airMaroc = read.table("marocRoyal.csv" ,sep=",",dec=",",header=T)
+airMarocEconymy = read.table("marocEconomy.csv",sep=",",dec=",",header=T)
+airMarocBusiness = read.table("marrocBusiness.csv",sep=",",dec=",",header=T)
+tunisair2 = read.table("tunisair2.csv" ,sep=",",dec=",",header=T)
+head(airMarocBusiness)
+
+```
+
+```{r}
+dim(airMaroc)
+dim(tunisair2)
+airMaroc[1] <- data.frame(lapply(airMaroc[1], as.character), stringsAsFactors=FALSE)
+tunisair2[1] <- data.frame(lapply(tunisair2[1], as.character), stringsAsFactors=FALSE)
+```
+
+Nous remarquons que Tunisair posséde 8 modèles d'avion alors que royal air maroc posséde 16 modèles.
+
+la comparaison va se baser sur la différence entre Tunisair et Royal Air Maroc au niveau du confort (seats widh, seats pitch), services offerts (wifi, video, power)
+
+
+**Convertir Aircraft.with.seatmap de type factor en type characters**
+```{r}
+Aircrafts <- NULL
+#select all the aircraft and cleaning them
+for (i in 1:nrow(airMaroc)) {
+  Aircrafts <- c(Aircrafts, b<-gsub("\\(.*", "", airMaroc$Aircraft.with.seatmap))
+}
+#Added a colom to the ana_delta with the cleaned up name
+for (i in 1:nrow(airMaroc)) {
+  airMaroc[i,1] <- Aircrafts[i]
+} 
+
+Aircrafts2 <- NULL
+#select all the aircraft and cleaning them
+for (i in 1:nrow(tunisair2)) {
+  Aircrafts2 <- c(Aircrafts2, b<-gsub("\\(.*", "", tunisair2$Aircraft.with.seatmap))
+}
+#Added a colom to the ana_delta with the cleaned up name
+for (i in 1:nrow(tunisair2)) {
+  tunisair2[i,1] <- Aircrafts2[i]
+} 
+```
+
+
+```{r}
+avector <- as.vector(airMaroc['Aircraft.with.seatmap'])
+pie(table(avector))
+
+avector2 <- as.vector(tunisair2['Aircraft.with.seatmap'])
+pie(table(avector2))
+```
+
+Nous remarquons que la majorité des avions de Tunisair est de type Airbus alors que chez Royal Air Maroc elle est de type Boieng. 
+
+**Conversion des données**
+```{r message=FALSE, warning=FALSE}
+library(plyr)
+
+airMaroc$Video.Type <- revalue(airMaroc$Video.Type, c("On-Demand TV"=1))
+airMaroc$Video.Type <- revalue(airMaroc$Video.Type, c("Overhead TV"=1))
+airMaroc$Video.Type <- revalue(airMaroc$Video.Type, c("None"=0))
+airMaroc$Wi.Fi <- revalue(airMaroc$Wi.Fi, c("No"=0))
+
+
+airMaroc$Laptop.Power <- revalue(airMaroc$Laptop.Power, c("None"=0))
+airMaroc$Laptop.Power <- revalue(airMaroc$Laptop.Power, c("All Seats"=1))
+
+airMaroc$Power.Type <- revalue(airMaroc$Power.Type, c("AC Power"=1))
+airMaroc$Power.Type <- revalue(airMaroc$Power.Type, c("None"=0))
+
+
+tunisair2$Video.Type <- revalue(tunisair2$Video.Type, c("Seatback TV"=1))
+tunisair2$Video.Type <- revalue(tunisair2$Video.Type, c("None"=0))
+tunisair2$Wi.Fi <- revalue(tunisair2$Wi.Fi, c("No"=0))
+
+
+tunisair2$Laptop.Power <- revalue(tunisair2$Laptop.Power, c("None"=0))
+tunisair2$Laptop.Power <- revalue(tunisair2$Laptop.Power, c("All Seats"=1))
+
+tunisair2$Power.Type <- revalue(tunisair2$Power.Type, c("AC Power"=1))
+tunisair2$Power.Type <- revalue(tunisair2$Power.Type, c("None"=0))
+```
+
+
+Comparons la moyenne de seat pitch chez Tunisair business et royal maroc business
+```{r}
+airMarocBusiness$Seat.Pitch <- as.numeric(as.character(airMarocBusiness$Seat.Pitch))
+airMarocBusiness$Seat.Pitch <- as.numeric(as.character(airMarocBusiness$Seat.Width))
+#moyenne Seat.Pitch maroc
+mean(airMarocBusiness$Seat.Pitch)
+#moyenne Seat.Widh maroc
+mean(airMarocBusiness$Seat.Width)
+
+#moyenne Seat.Pitch tunisair
+mean(dataTunisair$Seat.Width..Business.)
+#moyenne Seat.Widh tunisair
+mean(dataTunisair$Seat.Pitch..Business.)
+
+```
+
+La moyenne de "Seat.Pitch" chez Tunisair est de 14.17 inférieure a celle de Royal Air Maroc qui est 20.5. 
+
+La moyenne de "Seat.Widh" est preque la même chez les 2 compagnies dans la classe business.
+
+Comparons maintenant la moyenne de seat widh chez Tunisair economy et Royal Air Maroc economy
+```{r}
+airMarocEconymy$Seat.Pitch <- as.numeric(as.character(airMarocEconymy$Seat.Pitch))
+airMarocEconymy$Seat.Pitch <- as.numeric(as.character(airMarocEconymy$Seat.Width))
+#moyenne Seat.Pitch maroc
+mean(airMarocEconymy$Seat.Pitch)
+#moyenne Seat.Widh maroc
+mean(airMarocEconymy$Seat.Width)
+
+#moyenne Seat.Pitch tunisair
+mean(dataTunisair$Seat.Width..Economy.)
+#moyenne Seat.Widh tunisair
+mean(dataTunisair$Seat.Pitch..Economy.)
+
+```
+
+La moyenne "Seat.pitch" est presque la même chez les 2 compagnies dans la classe économique.
+
+La moyenne "Seat.Widh" chez Tunisair est de 29.96 supérieur à celui de Royal Air Maroc qui est 17. 
+
+
+```{r}
+airMaroc$Wi.Fi <- as.numeric(as.character(airMaroc$Wi.Fi))
+nrow(airMaroc[which(airMaroc$Wi.Fi>0),])
+```
+Royal Air Maroc ne dispose d'aucun avion avec le wifi.
+Nous remarquons donc que les 2 compagnies n'ont aucun modéle d'avion qui dispose du wifi.
+
+```{r}
+airMaroc$Power.Type <- as.numeric(as.character(airMaroc$Power.Type))
+nrow(airMaroc[which(airMaroc$Power.Type>0),])
+
+tunisair2$Power.Type <- as.numeric(as.character(tunisair2$Power.Type))
+nrow(tunisair2[which(tunisair2$Power.Type>0),])
+```
+
+Nous remarquons qu'il y a 8 modéles d'avions qui disposent du power type chez Royal Air Maroc alors qu'il y a 2 modéles seulement chez Tunisair. 
+
+```{r}
+airMaroc$Video.Type <- as.numeric(as.character(airMaroc$Video.Type))
+nrow(airMaroc[which(airMaroc$Video.Type>0),])
+
+tunisair2$Video.Type <- as.numeric(as.character(tunisair2$Video.Type))
+nrow(tunisair2[which(tunisair2$Video.Type>0),])
+```
+
+La même chose pour la video type .
+
+```{r}
+airMaroc$Laptop.Power <- as.numeric(as.character(airMaroc$Laptop.Power))
+nrow(airMaroc[which(airMaroc$Laptop.Power>0),])
+
+tunisair2$Laptop.Power <- as.numeric(as.character(tunisair2$Laptop.Power))
+nrow(tunisair2[which(tunisair2$Laptop.Power>0),])
+```
+Il y a un seul modéle d'avion qui dispose du Laptop.Power chez Tunisair alors qu'on trouve 4 chez Royal Air Maroc.
+
+**Nombre d'avion**
+```{r}
+library(readxl)
+ageMaroc <- read_excel("ageFlotteMaroc.xlsx")
+ageTunisair <- read_excel("ageFlotteTunisair.xlsx")
+```
+
+```{r}
+sum(ageMaroc$Current)
+sum(ageTunisair$Current)
+```
+
+Nous remarquons qu'il y a une grande différence de 23 avions entre le nombre d'avions de Tunisair et Royal Air Maroc
+
+**Age flotte**
+```{r}
+mean(ageMaroc$`Avg. Age`)
+mean(ageTunisair$`Avg. Age`)
+```
+
+La moyenne d'âge de tunisair est de 13.925 superieure légerement à la moyenne d'âge de Royal Air Maroc qui est 12.54.
+
+
+<strong>Pour conclure nous voyons que Royal air Maroc a un léger avantage par rapport à Tunisair surtout sur le plan du nombre d'avion, Video.Type et le power.</strong>
+
+
+##Conclusion finale
+
+<img src="Comp1.png">
+
+Tunisair est conforme à la la flotte typique dans :
+
+- La présence de eco class dans tous les avion
+- Dans cruising speed et range et tail Height
+- Présence de Satellite dans 6% des avions qui font les longs trajets
+
+
+Tunisair est non conforme à la flotte type dans :
+
+- L'absence de class eco confort 
+- Dans Le nombre de places qui est inférieur à la flotte typique 
+- Dans l'absence de toute forme de divertissement ( wifi/video) parcontre ils sont presents dans tous les avions du cluster 2 , cela peut expliquer les mauvaises notes (reviews) de Tunisair d'apres le fichier airlines.csv.  
+- La plupart des chaises de Tunisair sont de type standrad par rapport au cluster optimal : le cluster optimal a des chaises de type sleeper et flat bed 
+
+-Si Tunisair aimerait viser haut il faut qu'elle dispose d'une first class ajouter des services comme le wifi et la video ,renforcer sa puissance et améliorer le confort (chaises et flat-bed)
+
+
+### Evaluation 
+
+- Connaître l'emplacement de tunisair par rapport à ses concurrents directs (maroc) nous avons constaté que notre concurrent posséde plus de nombre d'avion (51) et il est plus avantagé en confort dans la classe business mais aussi la moyenne d'âge qui est supérieure aux avions de Royal Air Maroc  .
+
+- Nous avons pu déterminer la position de Tunisair côté service elle est moyenne à ce niveau et elle est faible en divertissement par rapport à ses concurrents
+ 
+- Nous avons constaté que Tunisair répond aux exigences de la flotte typique avec quelques points à améliorer (comme le confort )
+
+###Déploiement
+
+Pour récaputiler et sortir avec des solutions pouvant être envisagées par la compagnie Tunisair . Elle doit acheter de nouvelles flottes de type <strong>A330</strong> pour les courtes distances et <strong>Boing776</strong> pour les longues distances afin d'atteindre le marché asiatique qui s'est avéré en progression et qui a atteint une amélioration de 190% en 2018 .
+
+
+
+
+
+
+
+
+
